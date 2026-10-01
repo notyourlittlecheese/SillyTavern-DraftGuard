@@ -5,10 +5,16 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '..');
 const entry = '/scripts/extensions/third-party/tavern-draft-guard/';
-const html = `<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${entry}style.css"><style>body{background:#202020;color:#eee;font-family:system-ui}#send_textarea{width:90%;height:120px}button,select,textarea{background:#303030;color:#eee}</style><body><h2>酒馆输入框测试</h2><form><div id="leftSendForm"></div><textarea id="send_textarea"></textarea></form><script>
+const html = `<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${entry}style.css"><style>body{background:#202020;color:#eee;font-family:system-ui}#send_textarea{width:90%;height:120px}button,select,textarea{background:#303030;color:#eee}</style><body><h2>酒馆输入框测试</h2><form><div id="leftSendForm"></div><div id="extensionsMenu"></div><textarea id="send_textarea"></textarea></form><script>
 window.listeners={}; window.ctx={ chat:[],characters:[{avatar:'alice.png'},{avatar:'bob.png'}],characterId:0,groupId:null,chatId:'chat-A',eventTypes:{APP_READY:'ready',CHAT_CHANGED:'change',MESSAGE_SENT:'sent'},getCurrentChatId(){return this.chatId},eventSource:{on(type,fn){(listeners[type]??=[]).push(fn)}}};
 window.emit=(type,...args)=>{for(const fn of listeners[type]||[])fn(...args)};
 window.SillyTavern={getContext:()=>ctx};
+ctx.POPUP_TYPE={TEXT:1};
+ctx.Popup=class {
+ constructor(content,type,value,options){this.options=options;this.dlg=document.createElement('dialog');this.dlg.className='popup';this.dlg.append(content);this.dlg.addEventListener('cancel',event=>{event.preventDefault();this.completeCancelled()});}
+ async show(){document.body.append(this.dlg);this.dlg.showModal();return new Promise(resolve=>{this.resolve=resolve})}
+ async completeCancelled(){this.dlg.close();this.options.onClose?.();this.dlg.remove();this.resolve?.();}
+};
 window.send=(text)=>{const box=document.querySelector('#send_textarea');const msg=text??box.value;box.value='';box.dispatchEvent(new Event('input',{bubbles:true}));ctx.chat.push({is_user:true,mes:msg});emit('sent',ctx.chat.length-1)};
 </script><script type="module" src="${entry}index.js"></script></body></html>`;
 const requests=[];
@@ -36,6 +42,20 @@ async function check(name,fn){await fn();results.push(name);console.log('PASS',n
  async function history(){await page.locator('#tdg-open').click();await page.waitForFunction(()=>{const s=document.querySelector('.tdg-status');return s&&!s.textContent.includes('正在读取')});}
  async function close(){await page.getByRole('button',{name:'关闭',exact:true}).click()}
  async function rows(){return page.evaluate(async(entry)=>{const{DraftStore}=await import(entry+'store.js');const s=new DraftStore();const k=JSON.stringify([window.testUser||'test-user','character',ctx.characters[ctx.characterId].avatar,ctx.chatId]);const m=await s.list(k);return {current:await Promise.all(m.current.map(x=>s.read(k,x.id))),previous:await Promise.all(m.previous.map(x=>s.read(k,x.id)))}},entry)}
+ await check('魔棒入口名为草稿保护，输入框侧栏没有插件按钮，使用酒馆 Popup',async()=>{
+  assert.equal(await page.locator('#extensionsMenu #tdg-open').innerText(),'草稿保护');assert.equal(await page.locator('#leftSendForm #tdg-open').count(),0);
+  await history();assert.equal(await page.locator('dialog.popup.tdg-native-popup').count(),1);await close();
+ });
+ await check('无聊天时给出提示，聊天晚加载且漏掉切换事件时点击仍能打开',async()=>{
+  await page.evaluate(()=>{ctx.chatId=null;emit('change')});await history();assert((await page.locator('.tdg-status').innerText()).includes('请先打开'));await close();
+  await page.evaluate(()=>{ctx.chatId='chat-A'});await history();assert(!(await page.locator('.tdg-status').innerText()).includes('请先打开'));await close();
+ });
+ await check('魔棒在 APP_READY 才挂载也会初始化，重复 ready 不重复添加',async()=>{
+  const late=await browser.newPage();
+  await late.route('**/',route=>route.fulfill({contentType:'text/html',body:html.replace('<div id="extensionsMenu"></div>','')}));
+  await late.goto(url);await late.waitForFunction(()=>Boolean(listeners.ready?.length));assert.equal(await late.locator('#tdg-open').count(),0);
+  await late.evaluate(()=>{const menu=document.createElement('div');menu.id='extensionsMenu';document.body.append(menu);emit('ready');emit('ready')});assert.equal(await late.locator('#extensionsMenu #tdg-open').count(),1);await late.close();
+ });
  await check('3 秒内连续输入会保存，静止不重复写入',async()=>{
   await box.fill('第一楼 v1');await page.waitForTimeout(3150);let r=await rows();assert.equal(r.current.at(-1).text,'第一楼 v1');
   await page.waitForTimeout(3200);assert.equal((await rows()).current.length,1);
@@ -56,7 +76,7 @@ async function check(name,fn){await fn();results.push(name);console.log('PASS',n
   await box.fill('第五楼 临时改写');await history();
   const option=await page.locator('.tdg-select option').evaluateAll(nodes=>nodes.map(n=>n.value));
   await page.locator('.tdg-select').selectOption(option[1]);await page.waitForFunction(()=>document.querySelector('.tdg-preview').value==='第五楼 正在写');
-  await page.getByRole('button',{name:'恢复到输入框',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog').open);assert.equal(await box.inputValue(),'第五楼 正在写');assert((await rows()).current.some(x=>x.text==='第五楼 临时改写'));
+  await page.getByRole('button',{name:'恢复到输入框',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('dialog')?.open);assert.equal(await box.inputValue(),'第五楼 正在写');assert((await rows()).current.some(x=>x.text==='第五楼 临时改写'));
  });
  await check('聊天、角色、账户隔离；切换前保存旧聊天',async()=>{
   await box.fill('A 离开前最后输入');await page.evaluate(()=>{ctx.chatId='chat-B';document.querySelector('#send_textarea').value='';emit('change')});

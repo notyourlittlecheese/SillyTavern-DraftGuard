@@ -7,7 +7,7 @@
   "css": "style.css",
   "author": "notyourlittlecheese",
   "homePage": "https://github.com/notyourlittlecheese/SillyTavern-DraftGuard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "auto_update": false,
   "minimum_client_version": "1.12.0"
 }

@@ -2,7 +2,14 @@
 
 **输入框保护 · 草稿时光机**
 
-SillyTavern（酒馆）前端扩展。输入时每 3 秒保存一次有变化的内容；点击输入框旁的 **↶** 查看、恢复或导出历史。无需后端插件、API 密钥或构建步骤。
+SillyTavern（酒馆）前端扩展。输入时每 3 秒保存一次有变化的内容；点击魔棒菜单里的 **草稿保护** 查看、恢复或导出历史。无需后端插件、API 密钥或构建步骤。
+
+## v1.0.1
+
+- 入口移到魔棒菜单，显示为“草稿保护”，不再向输入框侧栏添加按钮。
+- 优先使用酒馆自带弹窗，改善主题兼容性。
+- 点击时重新同步聊天状态；未打开聊天时给出明确提示。
+- 保留原有浏览器草稿数据库，更新后无需迁移历史。
 
 ## 安装
 
@@ -14,7 +21,7 @@ SillyTavern（酒馆）前端扩展。输入时每 3 秒保存一次有变化的
 https://github.com/notyourlittlecheese/SillyTavern-DraftGuard
 ```
 
-安装完成后刷新网页，在扩展管理中确认已启用。进入聊天，点击输入框旁的 **↶** 查看历史。以后可通过酒馆扩展管理检查更新。
+安装完成后刷新网页，在扩展管理中确认已启用。进入聊天，点击魔棒菜单里的 **草稿保护** 查看历史。以后可通过酒馆扩展管理检查更新。
 
 ### 手动安装
 
@@ -24,7 +31,7 @@ https://github.com/notyourlittlecheese/SillyTavern-DraftGuard
    普通单用户安装通常是 `data/default-user/extensions/tavern-draft-guard/`。
    也可以放在 `public/scripts/extensions/third-party/tavern-draft-guard/`，供所有酒馆账号加载。
 3. 确认 `manifest.json` 就在该文件夹第一层，不要多套一层文件夹。
-4. 刷新酒馆网页，在扩展管理中确认“输入框保护 · 草稿时光机”已启用。打开聊天后，输入框旁出现 **↶**。
+4. 刷新酒馆网页，在扩展管理中确认“输入框保护 · 草稿时光机”已启用。打开聊天后，魔棒菜单中出现 **草稿保护**。
 
 手机浏览器连接电脑/服务器上的酒馆时，文件应放到运行酒馆的电脑/服务器。手机本地运行酒馆则放进手机上的酒馆安装目录。GitHub 下载的 ZIP 也可手动安装：将解压后的仓库文件夹改名为 `tavern-draft-guard`，再按上述步骤放置。
 
@@ -60,9 +67,9 @@ https://github.com/notyourlittlecheese/SillyTavern-DraftGuard
 
 ## 验证与兼容范围
 
-按 [SillyTavern 扩展文档](https://docs.sillytavern.app/for-contributors/writing-extensions/) 和 [SillyTavern 源码提交 06bde939](https://github.com/SillyTavern/SillyTavern/tree/06bde939fb1e9c4c8d8641d810f0a916b5bce127)（源码版本 1.19.0）核对扩展清单、输入框和发送事件。需要支持 IndexedDB、ES modules、原生 dialog 的现代浏览器。已兼容局域网 HTTP 下不可用的 `crypto.randomUUID`。
+按 [SillyTavern 扩展文档](https://docs.sillytavern.app/for-contributors/writing-extensions/) 和 [SillyTavern 源码提交 06bde939](https://github.com/SillyTavern/SillyTavern/tree/06bde939fb1e9c4c8d8641d810f0a916b5bce127)（源码版本 1.19.0）核对扩展清单、输入框和发送事件。需要支持 IndexedDB、ES modules、酒馆弹窗（旧版回退到原生 dialog） 的现代浏览器。已兼容局域网 HTTP 下不可用的 `crypto.randomUUID`。
 
-交付前在真实 Chromium 浏览器、模拟酒馆 DOM/事件的测试页通过 **14 项检查**，覆盖发送轮换、实际删除、末尾补存、刷新恢复、隔离、输入法、发送延迟、存储故障、字数/版本/聊天上限、后台和空闲行为。详见 `TEST-REPORT.json`，测试源在 `tests/smoke.cjs`。
+交付前在真实 Chromium 浏览器、模拟酒馆 DOM/事件的测试页通过 **17 项检查**，覆盖发送轮换、实际删除、末尾补存、刷新恢复、隔离、输入法、发送延迟、存储故障、字数/版本/聊天上限、后台和空闲行为。详见 `TEST-REPORT.json`，测试源在 `tests/smoke.cjs`。
 
 测试不是完整酒馆服务器联调，也不是手机真机温度测试；插件做了低负载和有界存储设计，但无法对任意手机、浏览器或其他扩展组合承诺绝不发热/卡顿。自定义主题隐藏输入框侧边栏、替换原输入框 DOM 或重写发送流程的扩展，可能需要适配。多个页面同时编辑同一聊天时，版本会共用同一份数据库，不提供编辑锁。
 

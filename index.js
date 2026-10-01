@@ -6,6 +6,7 @@ const context = () => SillyTavern.getContext();
 let box, button, dialog, status, key = null, value = '', dirty = false, composing = false;
 let timer = null, queue = Promise.resolve(), candidate = null, started = false;
 let failure = '', lastSaved = '', panelKey = null, panelVersion = 0;
+let popup = null;
 const handled = new WeakSet();
 
 function chatKey() {
@@ -74,8 +75,7 @@ function switchChat() {
     value = box.value;
     candidate = null;
     dirty = Boolean(key && value);
-    if (dialog?.open) dialog.close();
-    if (button) button.disabled = !key;
+    if (dialog?.open) closeHistory();
     schedule();
 }
 
@@ -127,28 +127,46 @@ function element(tag, text, className) {
 }
 
 async function openHistory() {
-    if (!key) return;
+    // Initialization may precede chat loading. Refresh scope on every click
+    // instead of silently returning with a stale null key.
+    switchChat();
     if (dialog?.open) { dialog.focus(); return; }
     const scope = key;
     panelKey = scope;
     const version = ++panelVersion;
-    if (!dialog) {
+    const panel = element('div', null, 'tdg-panel');
+    const onClose = () => { panelVersion++; panelKey = null; };
+    const ctx = context();
+    if (ctx.Popup && ctx.POPUP_TYPE) {
+        popup = new ctx.Popup(panel, ctx.POPUP_TYPE.TEXT, '', {
+            okButton: false, leftAlign: true, allowVerticalScrolling: true,
+            onClose,
+        });
+        dialog = popup.dlg;
+        dialog.classList.add('tdg-native-popup');
+    } else {
+        dialog?.remove();
+        popup = null;
         dialog = element('dialog', null, 'tdg-dialog');
-        dialog.setAttribute('aria-label', '草稿历史');
         document.body.append(dialog);
-        dialog.addEventListener('close', () => { panelVersion++; panelKey = null; });
-        dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+        dialog.append(panel);
+        dialog.addEventListener('close', onClose);
     }
-    dialog.replaceChildren();
+    dialog.setAttribute('aria-label', '草稿历史');
     const heading = element('div', null, 'tdg-heading');
-    heading.append(element('strong', '输入框保护'));
+    heading.append(element('strong', '草稿保护'));
     const close = element('button', '关闭', 'menu_button');
-    close.type = 'button'; close.onclick = () => dialog.close(); heading.append(close);
+    close.type = 'button'; close.onclick = closeHistory; heading.append(close);
     status = element('p', '正在读取…', 'tdg-status');
     status.setAttribute('role', 'status');
     const explanation = element('p', '每 3 秒保存有变化的草稿。保留「正在写」和「上一条已发送」；再次发送才清理旧的一楼。历史仅存本浏览器。', 'tdg-note');
-    dialog.append(heading, explanation, status);
-    dialog.showModal();
+    panel.append(heading, explanation, status);
+    if (popup) void popup.show().catch(report);
+    else dialog.showModal();
+    if (!scope) {
+        status.textContent = '请先打开一个角色或群组聊天，再打开草稿保护。';
+        return;
+    }
     try {
         // Include extensions that changed .value without dispatching input.
         if (box.value !== value) input({ isTrusted: false });
@@ -201,7 +219,7 @@ async function openHistory() {
                 box.dispatchEvent(new Event('input', { bubbles: true }));
                 candidate = null;
                 await flush();
-                dialog.close(); box.focus();
+                await closeHistory(); box.focus();
             } catch (error) { report(error); }
             finally { restore.disabled = false; }
         };
@@ -213,22 +231,39 @@ async function openHistory() {
             link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
         actions.append(restore, download);
-        dialog.append(select, preview, actions);
+        panel.append(select, preview, actions);
         await load();
     } catch (error) { report(error); }
 }
 
+function closeHistory() {
+    if (popup) return popup.completeCancelled();
+    dialog?.close();
+}
+
 function start() {
-    if (started) return;
+    if (started) { switchChat(); return; }
     box = document.querySelector('#send_textarea');
-    const host = document.querySelector('#leftSendForm') || box?.parentElement;
+    const host = document.querySelector('#extensionsMenu');
     if (!box || !host) return;
     started = true;
-    button = element('button', '↶', 'tdg-button menu_button');
-    button.type = 'button'; button.id = 'tdg-open'; button.title = '草稿历史 · 每 3 秒自动保存';
-    button.setAttribute('aria-label', '查看和恢复草稿历史');
-    button.onclick = () => { openHistory().catch(report); };
-    host.append(button);
+    const container = element('div', null, 'extension_container');
+    container.id = 'tdg-wand-container';
+    button = element('div', null, 'list-group-item flex-container flexGap5');
+    button.id = 'tdg-open'; button.title = '草稿保护 · 每 3 秒自动保存';
+    button.setAttribute('role', 'button'); button.tabIndex = 0;
+    button.setAttribute('aria-label', '草稿保护');
+    button.append(element('i', null, 'fa-solid fa-clock-rotate-left extensionsMenuExtensionButton'), element('span', '草稿保护'));
+    const activate = () => { openHistory().catch(error => {
+        report(error);
+        if (globalThis.toastr) globalThis.toastr.error(`草稿保护打开失败：${error.message}`);
+        else globalThis.alert(`草稿保护打开失败：${error.message}`);
+    }); };
+    button.onclick = activate;
+    button.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); button.click(); }
+    };
+    container.append(button); host.append(container);
     const ctx = context(), events = ctx.eventTypes || ctx.event_types;
     ctx.eventSource.on(events.CHAT_CHANGED, switchChat);
     ctx.eventSource.on(events.MESSAGE_SENT, onSent);
