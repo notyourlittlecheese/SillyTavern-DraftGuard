@@ -1,0 +1,14 @@
+.tdg-button { min-width: 32px; min-height: 32px; margin: 2px; padding: 3px 6px; font-size: 22px; line-height: 1; }
+.tdg-button.tdg-error { color: #ff8b83; outline: 1px solid currentColor; }
+.tdg-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 24px)); max-height: 88dvh; overflow: auto; padding: 18px; border: 1px solid var(--SmartThemeBorderColor, #666); border-radius: 12px; background: var(--SmartThemeBlurTintColor, #242424); color: var(--SmartThemeBodyColor, #eee); box-shadow: 0 8px 30px #0006; text-align: left; }
+.tdg-dialog::backdrop { background: #0008; }
+.tdg-heading, .tdg-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tdg-heading strong { font-size: 1.15em; }
+.tdg-note, .tdg-status { font-size: .85em; line-height: 1.6; overflow-wrap: anywhere; }
+.tdg-note { opacity: .75; }
+.tdg-select { display: block; width: 100%; margin: 12px 0; min-height: 40px; }
+.tdg-preview { box-sizing: border-box; display: block; width: 100%; height: 35dvh; min-height: 120px; resize: vertical; white-space: pre-wrap; font-size: 16px; line-height: 1.6; padding: 10px; }
+.tdg-actions { justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
+.tdg-dialog button { cursor: pointer; min-height: 36px; }
+.tdg-dialog button:disabled { opacity: .45; cursor: default; }
+@media (max-width: 480px) { .tdg-dialog { padding: 12px; } .tdg-actions button { flex: 1; } }

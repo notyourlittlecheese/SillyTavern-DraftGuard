@@ -1,0 +1,13 @@
+{
+  "display_name": "输入框保护 · 草稿时光机",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "notyourlittlecheese",
+  "homePage": "https://github.com/notyourlittlecheese/SillyTavern-DraftGuard",
+  "version": "1.0.0",
+  "auto_update": false,
+  "minimum_client_version": "1.12.0"
+}
